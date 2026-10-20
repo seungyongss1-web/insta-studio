@@ -1,0 +1,5 @@
+{
+  "handle": "@mallang_knowledge",
+  "slots": ["13:00", "18:00"],
+  "min_lead_minutes": 30
+}
