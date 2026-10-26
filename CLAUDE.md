@@ -16,8 +16,9 @@ config.json     계정 아이디, 게시 시각(slots)
 1. `git pull` (게시된 기록이 원격에 쌓이므로 먼저 받는다)
 2. `python add_videos.py` → 새로 들어간 화와 예약 시각이 출력된다.
 3. 새로 들어간 각 `queue\*\post.json`의 `caption`과 `hashtags`를 채운다 (아래 캡션 규칙).
-4. `python add_videos.py --list`로 목록(예약 시각, 캡션 첫 줄)을 사용자에게 보여 준다.
-5. 사용자가 확인하면 `git add -A` → `git commit -m "예약: <n>화 ..."` → `git push`.
+4. **사용자 확인을 기다리지 않고** 바로 `git add -A` → `git commit -m "예약: <n>화 ..."` → `git push`.
+   (사용자가 2026-10-26에 "만든 영상은 승인 없이 자동으로 다 올려 달라"고 요청함)
+5. push한 뒤 `python add_videos.py --list`로 예약 목록(예약 시각, 캡션 첫 줄)을 사용자에게 알려 준다.
 
 ## 캡션 규칙
 - 1줄: 후킹 한 문장 (질문형 또는 반전, 25자 안팎). 인스타 릴스엔 제목 칸이 없으니 이 줄이 제목 역할.
