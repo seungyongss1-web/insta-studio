@@ -17,11 +17,14 @@ on:
 permissions:
   contents: write
 
-concurrency: publish
+concurrency:
+  group: publish
+  cancel-in-progress: true   # 멈춘 실행이 있으면 새 실행이 정리하고 대신 돈다
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
