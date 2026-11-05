@@ -161,7 +161,7 @@ def main():
         DONE.mkdir(exist_ok=True)
         dst = DONE / d.name
         shutil.move(str(d), str(dst))
-        (dst / "reel.mp4").unlink(missing_ok=True)  # 저장소 용량 절약 (원본은 내 컴퓨터 점토\영상에 있음)
+        (dst / "reel.mp4").unlink(missing_ok=True)  # 저장소 용량 절약 (원본은 포근이 위로숏폼\episodes에 있음)
         print(f"  ✓ 게시 완료 {link}")
 
 

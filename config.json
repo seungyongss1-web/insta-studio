@@ -1,5 +1,5 @@
 {
-  "handle": "@mallang_knowledge",
-  "slots": ["13:00", "18:00"],
+  "handle": "@mallang_knowledge (새 사용자 이름으로 바꾸기)",
+  "slots": ["21:30"],
   "min_lead_minutes": 30
 }

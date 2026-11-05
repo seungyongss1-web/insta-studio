@@ -1,0 +1,53 @@
+name: 예약 게시
+
+on:
+  schedule:
+    - cron: "7 * * * *"    # 매시 7분: 예약 시각이 지난 릴스 1개 게시
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "publish(예약된 것 게시) / dry-run(보기만) / check(영상 받아 가는지 시험) / now(지금 바로 게시)"
+        type: choice
+        options: [publish, dry-run, check, now]
+        default: dry-run
+      post:
+        description: "check·now 일 때 queue 안 폴더 이름 (예: 2026-10-21-1300-ep01)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency: publish
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: 인스타그램 게시
+        env:
+          IG_FACELESS_TOKEN: ${{ secrets.IG_FACELESS_TOKEN }}
+          IG_FACELESS_USER_ID: ${{ secrets.IG_FACELESS_USER_ID }}
+          MEDIA_BASE: ${{ vars.MEDIA_BASE }}
+          MODE: ${{ inputs.mode || 'publish' }}
+          POST: ${{ inputs.post }}
+        run: |
+          case "$MODE" in
+            dry-run) python publish.py --dry-run ;;
+            check)   python publish.py --check "$POST" ;;
+            now)     python publish.py --now "$POST" ;;
+            *)       python publish.py ;;
+          esac
+      - name: 게시 기록 저장
+        if: always()
+        run: |
+          git config user.name "upload-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A queue done
+          git diff --cached --quiet && exit 0
+          git commit -m "게시 완료 기록"
+          git pull --rebase origin main && git push origin HEAD:main

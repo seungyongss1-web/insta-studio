@@ -1,0 +1,23 @@
+name: 인스타 토큰 갱신
+
+# 인스타 토큰은 60일이면 만료돼요. 매달 1일·15일에 새로 갱신해 시크릿을 바꿔요.
+# 시크릿 GH_PAT(이 저장소 Secrets 읽기·쓰기 권한만 준 fine-grained 토큰)가 있어야 동작해요.
+on:
+  schedule:
+    - cron: "0 0 1,15 * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 토큰 갱신
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          OLD: ${{ secrets.IG_FACELESS_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "GH_PAT 시크릿이 없어서 건너뜀 (토큰은 60일마다 직접 바꿔 주세요)"; exit 0; fi
+          NEW=$(curl -s "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=$OLD" | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))")
+          if [ -z "$NEW" ]; then echo "갱신 실패"; exit 1; fi
+          printf '%s' "$NEW" | gh secret set IG_FACELESS_TOKEN --repo "$GITHUB_REPOSITORY"
+          echo "갱신 완료"
