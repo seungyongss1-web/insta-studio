@@ -9,8 +9,6 @@ if not exist ".git" (
   git remote add origin %REPO%
   git fetch origin main
   git reset --mixed origin/main >nul
-) else (
-  git pull --rebase origin main
 )
 if exist "_workflows\*.yml" (
   if not exist ".github\workflows" mkdir ".github\workflows"
@@ -18,8 +16,11 @@ if exist "_workflows\*.yml" (
 )
 git config user.name >nul 2>nul || git config user.name "seungyongss1-web"
 git config user.email >nul 2>nul || git config user.email "seungyongss1-web@users.noreply.github.com"
+git config core.autocrlf false
 git add -A
 git commit -m "예약 게시물 갱신" >nul 2>nul
+rem 내 변경을 먼저 커밋한 뒤, 그사이 자동 게시가 남긴 기록(게시 완료)을 받아 와서 합친다
+git pull --rebase origin main
 git push -u origin main
 if errorlevel 1 (echo. & echo [실패] 위 메시지를 Claude에게 보여 주세요.) else (echo. & echo [완료] 예약이 GitHub에 올라갔어요.)
 if /i not "%1"=="auto" pause
