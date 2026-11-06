@@ -1,5 +1,7 @@
 {
-  "handle": "@mallang_knowledge (새 사용자 이름으로 바꾸기)",
-  "slots": ["21:30"],
+  "handle": "@pause_and_glow_",
+  "slots": [
+    "21:30"
+  ],
   "min_lead_minutes": 30
 }
