@@ -1,30 +1,38 @@
 name: 예약 게시
 
+# GitHub의 cron 예약 실행은 자주 건너뛰어져서(하루 2~3번만 도는 날도 있음) 믿을 수 없다.
+# 그래서 실행 하나가 약 5시간 40분 동안 깨어 있으면서 1분마다 새 예약을 받아 와 확인하고,
+# 끝날 때 다음 실행을 스스로 이어서 켠다(끊기지 않는 대기 루프). cron은 루프가 끊겼을 때 되살리는 예비용.
 on:
-  push:                     # 올리기.bat으로 올리는 순간에도 한 번 확인 → 시각 지난 게 있으면 바로 게시
+  push:                     # 올리기.bat으로 올리면 바로 루프가 켜짐
     branches: [main]
-    paths: ["queue/**"]
+    paths: ["queue/**", ".github/workflows/publish.yml"]
   schedule:
-    - cron: "*/10 * * * *"    # 10분마다 확인 (GitHub가 예약 실행을 자주 건너뛰어서 촘촘하게): 예약 시각이 지난 릴스 1개 게시
+    - cron: "*/30 * * * *"  # 예비
   workflow_dispatch:
     inputs:
       mode:
-        description: "publish(예약된 것 게시) / dry-run(보기만) / check(영상 받아 가는지 시험) / now(지금 바로 게시)"
+        description: "publish(대기 루프) / dry-run(보기만) / check(영상 받아 가는지 시험) / now(지금 바로 게시)"
         type: choice
         options: [publish, dry-run, check, now]
-        default: dry-run
+        default: publish
       post:
         description: "check·now 일 때 queue 안 폴더 이름 (예: 2026-10-21-1300-ep01)"
         required: false
 
 permissions:
   contents: write
+  actions: write
 
-concurrency: publish
+concurrency:
+  # 대기 루프는 항상 하나만(나머지는 대기열에서 기다림). check·now 같은 1회 실행은 따로 바로 돈다.
+  group: ${{ (inputs.mode || 'publish') == 'publish' && 'publish-loop' || format('oneshot-{0}', github.run_id) }}
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,19 +46,36 @@ jobs:
           MEDIA_BASE: ${{ vars.MEDIA_BASE }}
           MODE: ${{ inputs.mode || 'publish' }}
           POST: ${{ inputs.post }}
-        run: |
-          case "$MODE" in
-            dry-run) python publish.py --dry-run ;;
-            check)   python publish.py --check "$POST" ;;
-            now)     python publish.py --now "$POST" ;;
-            *)       python publish.py ;;
-          esac
-      - name: 게시 기록 저장
-        if: always()
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "upload-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A queue done
-          git diff --cached --quiet && exit 0
-          git commit -m "게시 완료 기록"
-          git pull --rebase origin main && git push origin HEAD:main
+          record() {
+            git add -A queue done
+            git diff --cached --quiet && return 0
+            git commit -q -m "게시 완료 기록"
+            for i in 1 2 3 4 5; do
+              git pull -q --rebase origin main && git push -q origin HEAD:main && return 0
+              sleep 10
+            done
+            echo "::warning::게시 기록 저장 실패"
+          }
+          case "$MODE" in
+            dry-run) python publish.py --dry-run; exit 0 ;;
+            check)   python publish.py --check "$POST"; exit $? ;;
+            now)     python publish.py --now "$POST"; rc=$?; record; exit $rc ;;
+          esac
+
+          end=$(( $(date +%s) + 340 * 60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            git pull -q --rebase origin main || echo "새 예약 받아 오기 실패 — 다음에 다시"
+            if GITHUB_SHA=$(git rev-parse HEAD) python publish.py; then
+              record
+              sleep 60
+            else
+              record
+              echo "::warning::게시 실패 — 10분 뒤 다시 시도"
+              sleep 600
+            fi
+          done
+          gh workflow run publish.yml --ref main -f mode=publish && echo "다음 대기 루프를 켰어요"
