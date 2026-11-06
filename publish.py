@@ -111,10 +111,14 @@ def make_container(d: Path, post: dict, uid: str, token: str):
 
 
 def due_posts(now):
-    for p in sorted(QUEUE.glob("*/post.json")):
+    items = []
+    for p in QUEUE.glob("*/post.json"):
         post = json.loads(p.read_text(encoding="utf-8"))
-        if datetime.fromisoformat(post["scheduled_at"]) <= now:
-            yield p.parent, post
+        at = datetime.fromisoformat(post["scheduled_at"])
+        if at <= now:
+            items.append((at, p.parent.name, p.parent, post))
+    for _, _, d, post in sorted(items, key=lambda x: (x[0], x[1])):  # 예약 시각이 이른 것부터
+        yield d, post
 
 
 def main():
