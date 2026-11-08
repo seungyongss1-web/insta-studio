@@ -89,6 +89,28 @@ def caption_of(post) -> str:
     return f"{cap}\n\n{tags}".strip() if tags else cap
 
 
+# 게시 직후 자동으로 다는 첫 댓글 (post.json에 "comment"가 있으면 그걸 우선 사용)
+FIRST_COMMENT = "오늘 가장 힘들었던 순간은 뭐였나요?"
+COMMENT_TAGS = ["위로", "새벽", "감성", "공감", "우울"]
+
+
+def comment_of(post) -> str:
+    text = post.get("comment") or FIRST_COMMENT
+    tags = " ".join("#" + t.lstrip("#") for t in post.get("comment_tags", COMMENT_TAGS))
+    return f"{text}\n\n{tags}".strip()
+
+
+def post_comment(mid, post, token):
+    """게시 직후 첫 댓글. 실패해도 게시 자체는 성공으로 둔다."""
+    for i in range(3):  # 막 올라간 게시물은 잠깐 댓글이 안 달릴 수 있어 재시도
+        try:
+            time.sleep(5 if i == 0 else 20)
+            return api("POST", f"{mid}/comments", token, message=comment_of(post))["id"]
+        except Exception as e:
+            print(f"  ! 댓글 시도 {i + 1}/3 실패: {e}")
+    return None
+
+
 def make_container(d: Path, post: dict, uid: str, token: str):
     rel = quote(d.relative_to(ROOT).as_posix())
     errors = []
@@ -160,13 +182,14 @@ def main():
             link = api("GET", mid, token, fields="permalink").get("permalink", "")
         except Exception:
             link = ""
-        post["published"] = {"at": now.isoformat(), "media_id": mid, "link": link}
+        cmt = post_comment(mid, post, token)
+        post["published"] = {"at": now.isoformat(), "media_id": mid, "link": link, "comment_id": cmt}
         (d / "post.json").write_text(json.dumps(post, ensure_ascii=False, indent=2), encoding="utf-8")
         DONE.mkdir(exist_ok=True)
         dst = DONE / d.name
         shutil.move(str(d), str(dst))
         (dst / "reel.mp4").unlink(missing_ok=True)  # 저장소 용량 절약 (원본은 포근이 위로숏폼\episodes에 있음)
-        print(f"  ✓ 게시 완료 {link}")
+        print(f"  ✓ 게시 완료 {link}" + (" · 첫 댓글 작성됨" if cmt else " · 첫 댓글은 실패(게시는 성공)"))
 
 
 if __name__ == "__main__":
