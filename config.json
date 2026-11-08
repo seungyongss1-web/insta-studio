@@ -3,5 +3,6 @@
   "slots": [
     "20:40"
   ],
-  "min_lead_minutes": 30
+  "min_lead_minutes": 30,
+  "interval_minutes": 40
 }
