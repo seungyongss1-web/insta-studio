@@ -111,7 +111,36 @@ def post_comment(mid, post, token):
     return None
 
 
+def make_carousel(d: Path, post: dict, uid: str, token: str):
+    """이미지 여러 장(최대 10장) 게시물. post.json: "type": "carousel", "images": ["c01.jpg", ...]"""
+    rel = quote(d.relative_to(ROOT).as_posix())
+    imgs = post["images"][:10]  # 인스타 API는 캐러셀 최대 10장
+    errors = []
+    for base in media_bases():
+        urls = [f"{base}/{rel}/{quote(n)}" for n in imgs]
+        if not all(url_ok(u) for u in urls):
+            errors.append(f"{base}: 이미지 주소가 아직 안 열림")
+            continue
+        print(f"  이미지 {len(urls)}장: {urls[0]} …")
+        kids = []
+        for u in urls:
+            kid = api("POST", f"{uid}/media", token, image_url=u, is_carousel_item="true")["id"]
+            ok, why = wait(kid, token, tries=30)
+            if not ok:
+                raise RuntimeError(f"이미지 처리 실패({u}): {why}")
+            kids.append(kid)
+        cid = api("POST", f"{uid}/media", token, media_type="CAROUSEL", children=",".join(kids),
+                  caption=caption_of(post))["id"]
+        ok, why = wait(cid, token)
+        if ok:
+            return cid
+        errors.append(f"{base}: {why}")
+    raise RuntimeError("캐러셀 처리 실패: " + " / ".join(errors))
+
+
 def make_container(d: Path, post: dict, uid: str, token: str):
+    if post.get("type") == "carousel":
+        return make_carousel(d, post, uid, token)
     rel = quote(d.relative_to(ROOT).as_posix())
     errors = []
     for base in media_bases():
