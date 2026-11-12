@@ -1,8 +1,9 @@
 {
   "handle": "@pause_and_glow_",
   "slots": [
-    "17:00",
-    "20:20"
+    "18:00",
+    "19:30",
+    "21:00"
   ],
   "min_lead_minutes": 30
 }
